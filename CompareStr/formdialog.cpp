@@ -9,6 +9,7 @@
 #include <QFile>
 #include <QTextCodec>
 #include <QTextBlock>
+#include <QTextLayout>
 
 FormDialog::FormDialog(QWidget *parent) :
     QDialog(parent),
@@ -379,4 +380,19 @@ void FormDialog::on_textEditLeft_cursorPositionChanged()
     currentCursor.movePosition(QTextCursor::EndOfLine);
     int end = currentCursor.position();
     qDebug("%s", ui->textEditLeft->toPlainText().mid(begin, end - begin + 1).toStdString().c_str());
+
+    QTextLayout *layout = currentCursor.block().layout();
+    int pos = currentCursor.position() - currentCursor.block().position();
+    int line = layout->lineForTextPosition(pos).lineNumber() + currentCursor.block().firstLineNumber();
+    qDebug("%d", line);
+
+    QTextCursor cursorRight = ui->textEditRight->textCursor();
+    QTextLayout *layoutRight = cursorRight.block().layout();
+    int a = layoutRight->lineAt(line).textStart();
+    int b = layoutRight->lineAt(line).textLength();
+    qDebug("aaa %d %d", a,b);
+    int position = ui->textEditRight->document()->findBlockByLineNumber(line).position();
+    cursorRight.setPosition(position);
+     qDebug("%d", position);
+    ui->textEditRight->setTextCursor(cursorRight);
 }

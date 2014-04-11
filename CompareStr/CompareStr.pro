@@ -24,3 +24,5 @@ FORMS    += mainwindow.ui \
 
 RESOURCES += \
     resall.qrc
+
+RC_ICONS = Amarok.ico

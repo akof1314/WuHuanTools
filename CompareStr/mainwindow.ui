@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>特殊字符串对比</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <widget class="QMdiArea" name="mdiArea">
@@ -46,6 +46,7 @@
    </attribute>
    <addaction name="actionNew_N"/>
    <addaction name="actionCompare_C"/>
+   <addaction name="action_A"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionNew_N">
@@ -67,6 +68,15 @@
    </property>
    <property name="text">
     <string>对比(&amp;C)</string>
+   </property>
+  </action>
+  <action name="action_A">
+   <property name="icon">
+    <iconset resource="resall.qrc">
+     <normaloff>:/new/res/res/information-white.png</normaloff>:/new/res/res/information-white.png</iconset>
+   </property>
+   <property name="text">
+    <string>说明(&amp;A)</string>
    </property>
   </action>
  </widget>

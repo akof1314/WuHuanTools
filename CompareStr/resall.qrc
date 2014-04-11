@@ -3,5 +3,6 @@
         <file>res/document--plus.png</file>
         <file>res/folder-open-document.png</file>
         <file>res/universal.png</file>
+        <file>res/information-white.png</file>
     </qresource>
 </RCC>

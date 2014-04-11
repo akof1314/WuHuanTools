@@ -4,6 +4,7 @@
 #include <QSettings>
 #include <QCloseEvent>
 #include <QMdiSubWindow>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -99,4 +100,10 @@ void MainWindow::on_actionCompare_C_triggered()
             dialog->compare();
         }
     }
+}
+
+void MainWindow::on_action_A_triggered()
+{
+    QMessageBox::about(this, QStringLiteral("说明"),
+                       QStringLiteral("对特殊字符进行匹配检测，包括 转义格式</?> 和 格式化字符串% "));
 }

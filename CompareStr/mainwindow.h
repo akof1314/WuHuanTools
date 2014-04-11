@@ -23,6 +23,8 @@ private slots:
 
     void on_actionCompare_C_triggered();
 
+    void on_action_A_triggered();
+
 private:
     void createMdiView();
     void createMdiChildDialog();

@@ -16,7 +16,7 @@ public:
     explicit FormDialog(QWidget *parent = 0);
     ~FormDialog();
 
-    enum class DirectionType
+    enum DirectionType
     {
         Left,
         Right
@@ -27,20 +27,35 @@ public:
 private slots:
     void onActionCodeTriggered();
     void onPushButtonFileClicked(DirectionType eType);
+    void onTextEditCursorPositionChanged(DirectionType eType);
     void onThreadCompateFinished();
 
     void on_pushButtonFileLeft_clicked();
     void on_pushButtonFileRight_clicked();
-
     void on_textEditLeft_cursorPositionChanged();
+    void on_textEditRight_cursorPositionChanged();
 
 private:
+
+    struct CompareInfo
+    {
+        QString value;
+        int begin;
+        int end;
+        bool operator==(const CompareInfo &s) const;
+        bool operator!=(const CompareInfo &s) const;
+    };
+    typedef QList<CompareInfo> ListCompareInfo;
+
     void createMenuButton();
     QVariant compareThread(const QString &fileNameLeft, const QString &fileNameRight, const QString &codecNameLeft, const QString &codecNameRight);
     bool getMapStrID(const QString &fileName, QMap<uint, QByteArray> &mapStrID, QString &sameStrID);
-    bool justCompareValue(const QByteArray &valueLeft, const QByteArray &valueRight);
-    bool getEscapeList(const QByteArray &value, QStringList &listEscape);
-    bool getPercentList(const QByteArray &value, QStringList &listPercent);
+    bool justCompareValue(QByteArray &valueLeft, QByteArray &valueRight);
+    bool getEscapeList(const QByteArray &value, ListCompareInfo &listEscape);
+    bool getPercentList(const QByteArray &value, ListCompareInfo &listPercent);
+    QPair<int, int> justCompareListValue(const ListCompareInfo &listValueLeft, const ListCompareInfo &listValueRight);
+    void highlightCompare(int idx, const ListCompareInfo &listValue, QByteArray &value);
+    QByteArray byteArrayToHtmlEscaped(const QByteArray &value);
 
     void readSettings();
     void writeSettings();

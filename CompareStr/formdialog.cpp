@@ -10,6 +10,8 @@
 #include <QTextCodec>
 #include <QTextBlock>
 #include <QTextLayout>
+#include <QFileInfo>
+#include <QDateTime>
 
 FormDialog::FormDialog(QWidget *parent) :
     QDialog(parent),
@@ -31,6 +33,9 @@ FormDialog::~FormDialog()
 
 void FormDialog::compare()
 {
+    ui->textEditLeft->clear();
+    ui->textEditRight->clear();
+
     QString fileNameLeft = ui->comboBoxFileLeft->currentText();
     QString fileNameRight = ui->comboBoxFileRight->currentText();
     if (fileNameLeft.isEmpty() || fileNameRight.isEmpty())
@@ -55,6 +60,13 @@ void FormDialog::compare()
                                                  ui->pushButtonCodeRight->text());
     futureWatcher.setFuture(future);
     progressDialog->exec();
+
+    QFileInfo infoLeft(fileNameLeft);
+    ui->labelTimeLeft->setText(infoLeft.lastModified().toString("yyyy-MM-dd hh:mm:ss"));
+    QFileInfo infoRight(fileNameRight);
+    ui->labelTimeRight->setText(infoRight.lastModified().toString("yyyy-MM-dd hh:mm:ss"));
+
+    setWindowTitle(infoLeft.fileName());
 }
 
 void FormDialog::onActionCodeTriggered()
@@ -79,7 +91,7 @@ void FormDialog::onActionCodeTriggered()
             if (codecName != pushButton->text())
             {
                 pushButton->setText(codecName);
-                if (!ui->textEditLeft->toHtml().isEmpty() || !ui->textEditRight->toHtml().isEmpty())
+                if (!ui->textEditLeft->toPlainText().isEmpty() || !ui->textEditRight->toPlainText().isEmpty())
                 {
                     compare();
                 }
@@ -111,6 +123,34 @@ void FormDialog::onPushButtonFileClicked(FormDialog::DirectionType eType)
             ui->comboBoxFileRight->addItem(fileName);
         }
         ui->comboBoxFileRight->setCurrentText(fileName);
+    }
+}
+
+void FormDialog::onTextEditCursorPositionChanged(FormDialog::DirectionType eType)
+{
+    QTextEdit *edit = nullptr;
+    if (eType == DirectionType::Left)
+    {
+        edit = ui->textEditLeft;
+    }
+    else
+    {
+        edit = ui->textEditRight;
+    }
+    QTextCursor currentCursor = edit->textCursor();
+    QTextLayout *layout = currentCursor.block().layout();
+    int pos = currentCursor.position() - currentCursor.block().position();
+    int line = layout->lineForTextPosition(pos).lineNumber() + currentCursor.block().firstLineNumber();
+
+    QStringList listLeft = ui->textEditLeft->toHtml().split("<br />");
+    if (listLeft.count() > line)
+    {
+        ui->labelLeft->setText(listLeft.at(line));
+    }
+    QStringList listRight = ui->textEditRight->toHtml().split("<br />");
+    if (listRight.count() > line)
+    {
+        ui->labelRight->setText(listRight.at(line));
     }
 }
 
@@ -201,10 +241,12 @@ QVariant FormDialog::compareThread(const QString &fileNameLeft, const QString &f
     {
         if (mapRight.contains(i.key()))
         {
-            if (justCompareValue(i.value(), mapRight.value(i.key())) == false)
+            QByteArray valueLeft = byteArrayToHtmlEscaped(i.value());
+            QByteArray valueRight = byteArrayToHtmlEscaped(mapRight.value(i.key()));
+            if (justCompareValue(valueLeft, valueRight) == false)
             {
-                compareLeft.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecLeft->toUnicode(i.value().constData()).toHtmlEscaped()));
-                compareRight.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecRight->toUnicode(mapRight.value(i.key()).constData()).toHtmlEscaped()));
+                compareLeft.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecLeft->toUnicode(valueLeft.constData())));
+                compareRight.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecRight->toUnicode(valueRight.constData())));
             }
         }
         else
@@ -261,6 +303,10 @@ bool FormDialog::getMapStrID(const QString &fileName, QMap<uint, QByteArray> &ma
         {
             QByteArray strID = lineData.left(idxMid);
             QByteArray strValue = lineData.mid(idxMid + 1);
+            if (strValue.endsWith('\r'))
+            {
+                strValue.remove(strValue.count() - 1, 1);
+            }
 
             uint uID = strID.trimmed().toUInt();
             if (uID != 0)
@@ -281,22 +327,35 @@ bool FormDialog::getMapStrID(const QString &fileName, QMap<uint, QByteArray> &ma
     return true;
 }
 
-bool FormDialog::justCompareValue(const QByteArray &valueLeft, const QByteArray &valueRight)
+bool FormDialog::justCompareValue(QByteArray &valueLeft, QByteArray &valueRight)
 {
-    QStringList listEscapeLeft, listEscapeRight;
-    getEscapeList(valueLeft, listEscapeLeft);
-    getEscapeList(valueRight, listEscapeRight);
-
-    if (listEscapeLeft != listEscapeRight)
-    {
-        return false;
-    }
-
-    QStringList listPercentLeft, listPercentRight;
+    ListCompareInfo listPercentLeft, listPercentRight;
     getPercentList(valueLeft, listPercentLeft);
     getPercentList(valueRight, listPercentRight);
 
-    if (listPercentLeft != listPercentRight)
+    QPair<int, int> resultPercent = justCompareListValue(listPercentLeft, listPercentRight);
+    if (resultPercent.first + resultPercent.second != -2)
+    {
+        highlightCompare(resultPercent.first, listPercentLeft, valueLeft);
+        highlightCompare(resultPercent.second, listPercentRight, valueRight);
+        return false;
+    }
+
+    ListCompareInfo listEscapeLeft, listEscapeRight;
+    getEscapeList(valueLeft, listEscapeLeft);
+    getEscapeList(valueRight, listEscapeRight);
+
+    QPair<int, int> resultEscape = justCompareListValue(listEscapeLeft, listEscapeRight);
+    if (resultEscape.first + resultEscape.second != -2)
+    {
+        highlightCompare(resultEscape.first, listEscapeLeft, valueLeft);
+        highlightCompare(resultEscape.second, listEscapeRight, valueRight);
+        return false;
+    }
+
+    bool emptyLeft = valueLeft.trimmed().isEmpty();
+    bool emptyRight = valueRight.trimmed().isEmpty();
+    if ((emptyLeft && !emptyRight) || (!emptyLeft && emptyRight))
     {
         return false;
     }
@@ -304,17 +363,21 @@ bool FormDialog::justCompareValue(const QByteArray &valueLeft, const QByteArray 
     return true;
 }
 
-bool FormDialog::getEscapeList(const QByteArray &value, QStringList &listEscape)
+bool FormDialog::getEscapeList(const QByteArray &value, ListCompareInfo &listEscape)
 {
     int idxEnd;
-    int idxBegin = value.indexOf("</");
+    int idxBegin = value.indexOf("&lt;/");
     while (idxBegin != -1)
     {
-        idxEnd = value.indexOf(">", idxBegin);
+        idxEnd = value.indexOf("&gt;", idxBegin);
         if (idxEnd != -1)
         {
-            listEscape.append(value.mid(idxBegin, idxEnd - idxBegin + 1));
-            idxBegin = value.indexOf("</", idxEnd);
+            CompareInfo info;
+            info.value = value.mid(idxBegin, idxEnd - idxBegin + 1);
+            info.begin = idxBegin;
+            info.end = idxEnd + 4;
+            listEscape.append(info);
+            idxBegin = value.indexOf("&lt;/", idxEnd);
             continue;
         }
         break;
@@ -322,18 +385,79 @@ bool FormDialog::getEscapeList(const QByteArray &value, QStringList &listEscape)
     return true;
 }
 
-bool FormDialog::getPercentList(const QByteArray &value, QStringList &listPercent)
+bool FormDialog::getPercentList(const QByteArray &value, ListCompareInfo &listPercent)
 {
     int idxBegin = value.indexOf("%");
     while (idxBegin != -1)
     {
         if ((idxBegin + 1) < value.count())
         {
-            listPercent.append(QString(value.at(idxBegin + 1)));
+            // 这里做下过滤处理，只当后面存在格式符的话才加入
+            char c = value.at(idxBegin + 1);
+            if (isdigit(c) || isalpha(c) || isalnum(c))
+            {
+                CompareInfo info;
+                info.value = QString(value.at(idxBegin + 1));
+                info.begin = idxBegin;
+                info.end = idxBegin + 1;
+                listPercent.append(info);
+            }
         }
         idxBegin = value.indexOf("%", idxBegin + 2);
     }
     return true;
+}
+
+QPair<int, int> FormDialog::justCompareListValue(const ListCompareInfo &listValueLeft, const ListCompareInfo &listValueRight)
+{
+    for (int i = 0; i < listValueLeft.count() && i < listValueRight.count(); ++i)
+    {
+        if (listValueLeft.at(i) != listValueRight.at(i))
+        {
+            return qMakePair(i, i);
+        }
+    }
+
+    if (listValueLeft.count() > listValueRight.count())
+    {
+        return qMakePair(listValueRight.count(), -1);
+    }
+    else if (listValueLeft.count() < listValueRight.count())
+    {
+        return qMakePair(-1, listValueLeft.count());
+    }
+
+    return qMakePair(-1, -1);
+}
+
+void FormDialog::highlightCompare(int idx, const FormDialog::ListCompareInfo &listValue, QByteArray &value)
+{
+    if (idx != -1)
+    {
+        value.insert(listValue.at(idx).end, "</font>");
+        value.insert(listValue.at(idx).begin, "<font color=red>");
+    }
+}
+
+QByteArray FormDialog::byteArrayToHtmlEscaped(const QByteArray &value)
+{
+    QByteArray rich;
+    const int len = value.length();
+    rich.reserve(int(len * 1.1));
+    for (int i = 0; i < len; ++i) {
+        if (value.at(i) == QLatin1Char('<'))
+            rich += QLatin1String("&lt;");
+        else if (value.at(i) == QLatin1Char('>'))
+            rich += QLatin1String("&gt;");
+        else if (value.at(i) == QLatin1Char('&'))
+            rich += QLatin1String("&amp;");
+        else if (value.at(i) == QLatin1Char('"'))
+            rich += QLatin1String("&quot;");
+        else
+            rich += value.at(i);
+    }
+    rich.squeeze();
+    return rich;
 }
 
 void FormDialog::readSettings()
@@ -341,6 +465,8 @@ void FormDialog::readSettings()
     QSettings settings;
     ui->comboBoxFileLeft->addItems(settings.value("fileListLeft").toStringList());
     ui->comboBoxFileRight->addItems(settings.value("fileListRight").toStringList());
+    ui->comboBoxFileLeft->setCurrentIndex(settings.value("fileIdxLeft").toInt());
+    ui->comboBoxFileRight->setCurrentIndex(settings.value("fileIdxRight").toInt());
 }
 
 void FormDialog::writeSettings()
@@ -360,6 +486,8 @@ void FormDialog::writeSettings()
     QSettings settings;
     settings.setValue("fileListLeft", fileListLeft);
     settings.setValue("fileListRight", fileListRight);
+    settings.setValue("fileIdxLeft", qMin(ui->comboBoxFileLeft->currentIndex(), 4));
+    settings.setValue("fileIdxRight", qMin(ui->comboBoxFileRight->currentIndex(), 4));
 }
 
 void FormDialog::on_pushButtonFileLeft_clicked()
@@ -374,25 +502,21 @@ void FormDialog::on_pushButtonFileRight_clicked()
 
 void FormDialog::on_textEditLeft_cursorPositionChanged()
 {
-    QTextCursor currentCursor = ui->textEditLeft->textCursor();
-    currentCursor.movePosition(QTextCursor::StartOfLine);
-    int begin = currentCursor.position();
-    currentCursor.movePosition(QTextCursor::EndOfLine);
-    int end = currentCursor.position();
-    qDebug("%s", ui->textEditLeft->toPlainText().mid(begin, end - begin + 1).toStdString().c_str());
+    onTextEditCursorPositionChanged(DirectionType::Left);
+}
 
-    QTextLayout *layout = currentCursor.block().layout();
-    int pos = currentCursor.position() - currentCursor.block().position();
-    int line = layout->lineForTextPosition(pos).lineNumber() + currentCursor.block().firstLineNumber();
-    qDebug("%d", line);
+void FormDialog::on_textEditRight_cursorPositionChanged()
+{
+    onTextEditCursorPositionChanged(DirectionType::Right);
+}
 
-    QTextCursor cursorRight = ui->textEditRight->textCursor();
-    QTextLayout *layoutRight = cursorRight.block().layout();
-    int a = layoutRight->lineAt(line).textStart();
-    int b = layoutRight->lineAt(line).textLength();
-    qDebug("aaa %d %d", a,b);
-    int position = ui->textEditRight->document()->findBlockByLineNumber(line).position();
-    cursorRight.setPosition(position);
-     qDebug("%d", position);
-    ui->textEditRight->setTextCursor(cursorRight);
+
+bool FormDialog::CompareInfo::operator ==(const FormDialog::CompareInfo &s) const
+{
+    return value == s.value;
+}
+
+bool FormDialog::CompareInfo::operator !=(const FormDialog::CompareInfo &s) const
+{
+    return value != s.value;
 }

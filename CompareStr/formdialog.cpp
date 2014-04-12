@@ -546,7 +546,7 @@ QByteArray FormDialog::byteArrayVsprintfFormat(const QByteArray &value)
         } while (!no_more_flags);
 
         if (*c == '\0') {
-            break;
+            return QByteArray();
         }
 
         // Parse field width
@@ -560,7 +560,7 @@ QByteArray FormDialog::byteArrayVsprintfFormat(const QByteArray &value)
         }
 
         if (*c == '\0') {
-            break;
+            return QByteArray();
         }
 
         // Parse precision
@@ -578,7 +578,7 @@ QByteArray FormDialog::byteArrayVsprintfFormat(const QByteArray &value)
         }
 
         if (*c == '\0') {
-            break;
+            return QByteArray();
         }
 
         // Parse the length modifier
@@ -626,7 +626,7 @@ QByteArray FormDialog::byteArrayVsprintfFormat(const QByteArray &value)
         }
 
         if (*c == '\0') {
-            break;
+            return QByteArray();
         }
 
         // Parse the conversion specifier and do the conversion
@@ -678,7 +678,7 @@ QByteArray FormDialog::byteArrayVsprintfFormat(const QByteArray &value)
                 break;
 
             default: // bad escape, treat as non-escape text
-                break;
+                return QByteArray();
         }
         break;
     }

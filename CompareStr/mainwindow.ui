@@ -48,7 +48,6 @@
    <addaction name="actionCompare_C"/>
    <addaction name="action_A"/>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
   <action name="actionNew_N">
    <property name="icon">
     <iconset resource="resall.qrc">

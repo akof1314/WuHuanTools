@@ -54,8 +54,9 @@ private:
     bool getEscapeList(const QByteArray &value, ListCompareInfo &listEscape);
     bool getPercentList(const QByteArray &value, ListCompareInfo &listPercent);
     QPair<int, int> justCompareListValue(const ListCompareInfo &listValueLeft, const ListCompareInfo &listValueRight);
-    void highlightCompare(int idx, const ListCompareInfo &listValue, QByteArray &value);
+    void highlightCompare(int idx, const ListCompareInfo &listValue, QByteArray &value, int color);
     QByteArray byteArrayToHtmlEscaped(const QByteArray &value);
+    QByteArray byteArrayVsprintfFormat(const QByteArray &value);
 
     void readSettings();
     void writeSettings();

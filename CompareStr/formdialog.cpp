@@ -12,6 +12,7 @@
 #include <QTextLayout>
 #include <QFileInfo>
 #include <QDateTime>
+#include <QScrollBar>
 
 FormDialog::FormDialog(QWidget *parent) :
     QDialog(parent),
@@ -23,6 +24,14 @@ FormDialog::FormDialog(QWidget *parent) :
     createMenuButton();
 
     connect(&futureWatcher, SIGNAL(finished()), this, SLOT(onThreadCompateFinished()));
+    connect(ui->textEditLeft->verticalScrollBar(), &QScrollBar::valueChanged,
+            ui->textEditRight->verticalScrollBar(), &QScrollBar::setValue);
+    connect(ui->textEditRight->verticalScrollBar(), &QScrollBar::valueChanged,
+            ui->textEditLeft->verticalScrollBar(), &QScrollBar::setValue);
+    connect(ui->textEditLeft->horizontalScrollBar(), &QScrollBar::valueChanged,
+            ui->textEditRight->horizontalScrollBar(), &QScrollBar::setValue);
+    connect(ui->textEditRight->horizontalScrollBar(), &QScrollBar::valueChanged,
+            ui->textEditLeft->horizontalScrollBar(), &QScrollBar::setValue);
 }
 
 FormDialog::~FormDialog()
@@ -183,6 +192,18 @@ void FormDialog::onThreadCompateFinished()
         QList<QVariant> listReuslt = result.toList();
         ui->textEditLeft->setHtml(listReuslt.at(0).toString());
         ui->textEditRight->setHtml(listReuslt.at(1).toString());
+
+        QStringList listLeft = ui->textEditLeft->toHtml().split("<br />");
+        QStringList listRight = ui->textEditRight->toHtml().split("<br />");
+
+        if (listLeft.count() > listRight.count())
+        {
+            ui->textEditRight->append(QString("<br/>").repeated(listLeft.count() - listRight.count()));
+        }
+        else if (listLeft.count() < listRight.count())
+        {
+            ui->textEditLeft->append(QString("<br/>").repeated(listRight.count() - listLeft.count()));
+        }
     }
 }
 
@@ -206,7 +227,8 @@ void FormDialog::createMenuButton()
     ui->pushButtonCodeRight->setMenu(menuRight);
 }
 
-QVariant FormDialog::compareThread(const QString &fileNameLeft, const QString &fileNameRight, const QString &codecNameLeft, const QString &codecNameRight)
+QVariant FormDialog::compareThread(const QString &fileNameLeft, const QString &fileNameRight,
+                                   const QString &codecNameLeft, const QString &codecNameRight)
 {
     QMap<uint, QByteArray> mapLeft, mapRight;
     QString sameLeft, sameRight;
@@ -245,13 +267,19 @@ QVariant FormDialog::compareThread(const QString &fileNameLeft, const QString &f
             QByteArray valueRight = byteArrayToHtmlEscaped(mapRight.value(i.key()));
             if (justCompareValue(valueLeft, valueRight) == false)
             {
-                compareLeft.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecLeft->toUnicode(valueLeft.constData())));
-                compareRight.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecRight->toUnicode(valueRight.constData())));
+                compareLeft.append(QString("%1=%2<br/>")
+                                   .arg(i.key())
+                                   .arg(textCodecLeft->toUnicode(valueLeft.constData())));
+                compareRight.append(QString("%1=%2<br/>")
+                                    .arg(i.key())
+                                    .arg(textCodecRight->toUnicode(valueRight.constData())));
             }
         }
         else
         {
-            nothingLeft.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecLeft->toUnicode(i.value().constData()).toHtmlEscaped()));
+            nothingLeft.append(QString("%1=%2<br/>")
+                               .arg(i.key())
+                               .arg(textCodecLeft->toUnicode(i.value().constData()).toHtmlEscaped()));
         }
         ++i;
     }
@@ -263,7 +291,9 @@ QVariant FormDialog::compareThread(const QString &fileNameLeft, const QString &f
         }
         else
         {
-            nothingRight.append(QString("%1=%2<br/>").arg(i.key()).arg(textCodecRight->toUnicode(i.value().constData()).toHtmlEscaped()));
+            nothingRight.append(QString("%1=%2<br/>")
+                                .arg(i.key())
+                                .arg(textCodecRight->toUnicode(i.value().constData()).toHtmlEscaped()));
         }
         ++i;
     }
@@ -336,8 +366,8 @@ bool FormDialog::justCompareValue(QByteArray &valueLeft, QByteArray &valueRight)
     QPair<int, int> resultPercent = justCompareListValue(listPercentLeft, listPercentRight);
     if (resultPercent.first + resultPercent.second != -2)
     {
-        highlightCompare(resultPercent.first, listPercentLeft, valueLeft);
-        highlightCompare(resultPercent.second, listPercentRight, valueRight);
+        highlightCompare(resultPercent.first, listPercentLeft, valueLeft, 0);
+        highlightCompare(resultPercent.second, listPercentRight, valueRight, 0);
         return false;
     }
 
@@ -348,8 +378,8 @@ bool FormDialog::justCompareValue(QByteArray &valueLeft, QByteArray &valueRight)
     QPair<int, int> resultEscape = justCompareListValue(listEscapeLeft, listEscapeRight);
     if (resultEscape.first + resultEscape.second != -2)
     {
-        highlightCompare(resultEscape.first, listEscapeLeft, valueLeft);
-        highlightCompare(resultEscape.second, listEscapeRight, valueRight);
+        highlightCompare(resultEscape.first, listEscapeLeft, valueLeft, 1);
+        highlightCompare(resultEscape.second, listEscapeRight, valueRight, 1);
         return false;
     }
 
@@ -392,14 +422,13 @@ bool FormDialog::getPercentList(const QByteArray &value, ListCompareInfo &listPe
     {
         if ((idxBegin + 1) < value.count())
         {
-            // 这里做下过滤处理，只当后面存在格式符的话才加入
-            char c = value.at(idxBegin + 1);
-            if (isdigit(c) || isalpha(c) || isalnum(c))
+            QByteArray format = byteArrayVsprintfFormat(value.mid(idxBegin));
+            if (format.count() > 0)
             {
                 CompareInfo info;
-                info.value = QString(value.at(idxBegin + 1));
+                info.value = format;
                 info.begin = idxBegin;
-                info.end = idxBegin + 1;
+                info.end = idxBegin + format.count() + 1;
                 listPercent.append(info);
             }
         }
@@ -408,7 +437,8 @@ bool FormDialog::getPercentList(const QByteArray &value, ListCompareInfo &listPe
     return true;
 }
 
-QPair<int, int> FormDialog::justCompareListValue(const ListCompareInfo &listValueLeft, const ListCompareInfo &listValueRight)
+QPair<int, int> FormDialog::justCompareListValue(const ListCompareInfo &listValueLeft,
+                                                 const ListCompareInfo &listValueRight)
 {
     for (int i = 0; i < listValueLeft.count() && i < listValueRight.count(); ++i)
     {
@@ -430,12 +460,20 @@ QPair<int, int> FormDialog::justCompareListValue(const ListCompareInfo &listValu
     return qMakePair(-1, -1);
 }
 
-void FormDialog::highlightCompare(int idx, const FormDialog::ListCompareInfo &listValue, QByteArray &value)
+void FormDialog::highlightCompare(int idx, const FormDialog::ListCompareInfo &listValue,
+                                  QByteArray &value, int color)
 {
     if (idx != -1)
     {
         value.insert(listValue.at(idx).end, "</font>");
-        value.insert(listValue.at(idx).begin, "<font color=red>");
+        if (color == 0)
+        {
+            value.insert(listValue.at(idx).begin, "<font color=red>");
+        }
+        else
+        {
+            value.insert(listValue.at(idx).begin, "<font color=blue>");
+        }
     }
 }
 
@@ -458,6 +496,193 @@ QByteArray FormDialog::byteArrayToHtmlEscaped(const QByteArray &value)
     }
     rich.squeeze();
     return rich;
+}
+
+/*!
+    获取有效的格式符串，需要以%开头
+    例如：%0.2fabc → 0.2f
+*/
+
+QByteArray FormDialog::byteArrayVsprintfFormat(const QByteArray &value)
+{
+    QByteArray result;
+    const char *c = value.constData();
+    for (;;) {
+        if (*c == '\0')
+            break;
+        if (*c != '%')
+            break;
+
+        // Found '%'
+        ++c;
+
+        if (*c == '\0') {
+            result.append('%'); // a % at the end of the string - treat as non-escape text
+            break;
+        }
+        if (*c == '%') {
+            result.append('%'); // %%
+            break;
+        }
+
+        // Parse flag characters
+        bool no_more_flags = false;
+        do {
+            switch (*c) {
+                case '#': break;
+                case '0': break;
+                case '-': break;
+                case ' ': break;
+                case '+': break;
+                case '\'': break;
+                default: no_more_flags = true; break;
+            }
+
+            if (!no_more_flags)
+            {
+                result.append(*c);
+                ++c;
+            }
+        } while (!no_more_flags);
+
+        if (*c == '\0') {
+            break;
+        }
+
+        // Parse field width
+        if (isdigit(*c)) {
+            while (*c != '\0' && isdigit(*c))
+                result.append(*c++);
+        }
+        else if (*c == '*') {
+            result.append(*c);
+            ++c;
+        }
+
+        if (*c == '\0') {
+            break;
+        }
+
+        // Parse precision
+        if (*c == '.') {
+            result.append(*c);
+            ++c;
+            if (isdigit(*c)) {
+                while (*c != '\0' && isdigit(*c))
+                    result.append(*c++);
+            }
+            else if (*c == '*') {
+                result.append(*c);
+                ++c;
+            }
+        }
+
+        if (*c == '\0') {
+            break;
+        }
+
+        // Parse the length modifier
+        switch (*c) {
+            case 'h':
+                result.append(*c);
+                ++c;
+                if (*c == 'h') {
+                    result.append(*c);
+                    ++c;
+                }
+                break;
+
+            case 'l':
+                result.append(*c);
+                ++c;
+                if (*c == 'l') {
+                    result.append(*c);
+                    ++c;
+                }
+                break;
+
+            case 'L':
+                result.append(*c);
+                ++c;
+                break;
+
+            case 'j':
+                result.append(*c);
+                ++c;
+                break;
+
+            case 'z':
+            case 'Z':
+                result.append(*c);
+                ++c;
+                break;
+
+            case 't':
+                result.append(*c);
+                ++c;
+                break;
+
+            default: break;
+        }
+
+        if (*c == '\0') {
+            break;
+        }
+
+        // Parse the conversion specifier and do the conversion
+        switch (*c) {
+            case 'd':
+            case 'i': {
+                result.append(*c);
+                ++c;
+                break;
+            }
+            case 'o':
+            case 'u':
+            case 'x':
+            case 'X': {
+                result.append(*c);
+                ++c;
+                break;
+            }
+            case 'E':
+            case 'e':
+            case 'F':
+            case 'f':
+            case 'G':
+            case 'g':
+            case 'A':
+            case 'a': {
+                result.append(*c);
+                ++c;
+                break;
+            }
+            case 'c': {
+                result.append(*c);
+                ++c;
+                break;
+            }
+            case 's': {
+                result.append(*c);
+                ++c;
+                break;
+            }
+            case 'p': {
+                result.append(*c);
+                ++c;
+                break;
+            }
+            case 'n':
+                result.append(*c);
+                ++c;
+                break;
+
+            default: // bad escape, treat as non-escape text
+                break;
+        }
+        break;
+    }
+    return result;
 }
 
 void FormDialog::readSettings()

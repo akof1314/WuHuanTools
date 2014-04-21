@@ -194,6 +194,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\SelectPIDDlg.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\SettingsDlg.cpp"
 				>
 			</File>
@@ -233,6 +237,10 @@
 			</File>
 			<File
 				RelativePath=".\Resource.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SelectPIDDlg.h"
 				>
 			</File>
 			<File

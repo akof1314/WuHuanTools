@@ -6,6 +6,7 @@
 #include "IgnoreAssert.h"
 #include "IgnoreAssertDlg.h"
 #include "SettingsDlg.h"
+#include "SelectPIDDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -280,7 +281,7 @@ void CIgnoreAssertDlg::FindAllAssertDlg()
 	for (pos = listWnd.GetHeadPosition(); pos != NULL;)
 	{
 		CWnd *pParentDlg = (CWnd*)listWnd.GetNext(pos);
-		if (pParentDlg)
+		if (pParentDlg && CSelectPIDDlg::IsFilterPID(pParentDlg->GetSafeHwnd()))
 		{
 			CWnd *pButton = FindWindowEx(pParentDlg->GetSafeHwnd(), NULL, _T("Button"), _T("ºöÂÔ(&I)"));
 			if (pButton == NULL)

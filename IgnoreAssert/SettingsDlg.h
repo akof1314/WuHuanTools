@@ -1,6 +1,7 @@
 #pragma once
 #include "afxwin.h"
 #include "afxdtctl.h"
+#include "afxlinkctrl.h"
 
 
 // CSettingsDlg dialog
@@ -18,11 +19,8 @@ public:
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-
 	DECLARE_MESSAGE_MAP()
-public:
-	afx_msg void OnBnClickedOk();
-	virtual BOOL OnInitDialog();
+
 	CButton m_chkAutoRun;
 	CButton m_chkAutoStart;
 	CEdit m_edtTimeAutoStart;
@@ -30,4 +28,14 @@ public:
 	CButton m_chkAutoShutDown;
 	CDateTimeCtrl m_dtcTimeShutDown;
 	CTime m_timeShutDown;
+	CMFCLinkCtrl m_btnPID;
+	CButton m_chkPID;
+
+	virtual BOOL OnInitDialog();
+	afx_msg void OnBnClickedOk();
+	afx_msg void OnBnClickedButtonHigh();
+	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
+
+public:
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
 };

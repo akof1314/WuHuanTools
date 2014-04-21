@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include "IgnoreAssert.h"
 #include "SettingsDlg.h"
-
+#include "SelectPIDDlg.h"
 
 // CSettingsDlg dialog
 
@@ -31,11 +31,14 @@ void CSettingsDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_CHECK_AUTOSHUTDOWN, m_chkAutoShutDown);
 	DDX_Control(pDX, IDC_DATETIMEPICKER_TIME, m_dtcTimeShutDown);
 	DDX_DateTimeCtrl(pDX, IDC_DATETIMEPICKER_TIME, m_timeShutDown);
+	DDX_Control(pDX, IDC_BUTTON_HIGH, m_btnPID);
+	DDX_Control(pDX, IDC_CHECK_PID, m_chkPID);
 }
 
 
 BEGIN_MESSAGE_MAP(CSettingsDlg, CDialog)
 	ON_BN_CLICKED(IDOK, &CSettingsDlg::OnBnClickedOk)
+	ON_BN_CLICKED(IDC_BUTTON_HIGH, &CSettingsDlg::OnBnClickedButtonHigh)
 END_MESSAGE_MAP()
 
 
@@ -53,6 +56,7 @@ void CSettingsDlg::OnBnClickedOk()
 	theApp.WriteInt(STR_REG_AUTOSHUTDOWN, m_chkAutoShutDown.GetCheck());
 	strValue.Format(_T("%I64d"), m_timeShutDown);
 	theApp.WriteString(STR_REG_TIMESHUTDOWN, strValue);
+	CSelectPIDDlg::s_bFilterPID = m_chkPID.GetCheck();
 
 	OnOK();
 }
@@ -73,8 +77,35 @@ BOOL CSettingsDlg::OnInitDialog()
 	m_comAutoStop.SetCurSel(theApp.GetInt(STR_REG_AUTOSTOP));
 	m_chkAutoShutDown.SetCheck(theApp.GetInt(STR_REG_AUTOSHUTDOWN));
 	m_timeShutDown = _atoi64(CT2A(theApp.GetString(STR_REG_TIMESHUTDOWN).GetBuffer(0)));
+	m_chkPID.SetCheck(CSelectPIDDlg::s_bFilterPID);
 	UpdateData(FALSE);
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// EXCEPTION: OCX Property Pages should return FALSE
+}
+
+void CSettingsDlg::OnBnClickedButtonHigh()
+{
+}
+
+LRESULT CSettingsDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
+{
+	// TODO: Add your specialized code here and/or call the base class
+
+	return CDialog::WindowProc(message, wParam, lParam);
+}
+
+BOOL CSettingsDlg::PreTranslateMessage(MSG* pMsg)
+{
+	if (WM_LBUTTONDOWN == pMsg->message)
+	{
+		if (pMsg->hwnd == m_btnPID.GetSafeHwnd())
+		{
+			CSelectPIDDlg dlg;
+			dlg.DoModal();
+			return TRUE;
+		}
+	}
+
+	return CDialog::PreTranslateMessage(pMsg);
 }
